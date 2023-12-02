@@ -1,0 +1,73 @@
+version: "3"
+
+services:
+  mysql:
+    image: mysql:8
+    container_name: mysql
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_HOST: "%"
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: blog
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: admin
+    ports:
+      - "3306:3306"
+    expose:
+      - "3306"
+    volumes:
+      - database-volume:/var/lib/mysql
+    networks:
+      - app-network
+
+  adminer:
+    depends_on:
+      - mysql
+    image: adminer:4
+    container_name: adminer
+    restart: always
+    environment:
+      ADMINER_DEFAULT_SERVER: mysql
+    ports:
+      - "8080:8080"
+    networks:
+      - app-network
+
+  express-sequelize:
+    depends_on:
+      - mysql
+    build:
+      context: .
+      dockerfile: developer.dockerfile
+    image: express-sequelize
+    container_name: express-sequelize
+    ports:
+      - "5000:5000"
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_DATABASE: blog
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: admin
+      MYSQL_PORT: 3306
+    volumes:
+      - .:/home/node/app
+      - node_modules:/home/node/app/node_modules
+    command: >
+      bash -c "
+        npm run app:typecheck
+        npm run app:lint
+        npm run app:build
+        npm run app:start:dev
+      "
+    restart: unless-stopped
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  database-volume:
+  node_modules:
